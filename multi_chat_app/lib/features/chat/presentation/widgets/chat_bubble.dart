@@ -125,6 +125,7 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> with SingleTickerProvid
     final isUser = widget.message.isUser;
     final chatState = ref.watch(chatNotifierProvider).value;
     final userIcon = chatState?.userIconAsset;
+    final currentLanguage = chatState?.language;
     
     return FadeTransition(
       opacity: _opacityAnimation,
@@ -146,120 +147,133 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> with SingleTickerProvid
                     if (!isUser) _buildAvatar(false, widget.personaIconAsset),
                     if (!isUser) const SizedBox(width: 8),
                     
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isUser && _isHovered && kIsWeb) 
-                          IconButton(
-                            icon: const Icon(Icons.more_vert, size: 18),
-                            onPressed: () => _showActions(context),
-                          ),
-                        Column(
-                          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          children: [
-                            if (widget.message.replyToText != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 4),
-                                padding: const EdgeInsets.all(8),
-                                constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
-                                ),
-                                child: Text(
-                                  widget.message.replyToText!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic),
-                                ),
-                              ),
-                            
-                            // Support for multiple images
-                            if (widget.message.imagePaths.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: widget.message.imagePaths.map((path) => Container(
-                                    constraints: const BoxConstraints(maxHeight: 150, maxWidth: 150),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: kIsWeb 
-                                        ? Image.network(path, fit: BoxFit.cover)
-                                        : Image.file(
-                                            File(path),
-                                            fit: BoxFit.cover,
-                                          ),
-                                    ),
-                                  )).toList(),
-                                ),
-                              ),
-
-                            GestureDetector(
-                              onLongPress: () => _showActions(context),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                                constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isUser ? widget.accentColor : Theme.of(context).cardColor,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft: Radius.circular(isUser ? 16 : 0),
-                                    bottomRight: Radius.circular(isUser ? 0 : 16),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: isUser
-                                    ? Text(
-                                        widget.message.text,
-                                        style: const TextStyle(color: Colors.white),
-                                      )
-                                    : MarkdownBody(
-                                        data: widget.message.text,
-                                        styleSheet: MarkdownStyleSheet(
-                                          p: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
-                                        ),
-                                      ),
-                              ),
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        children: [
+                          if (isUser && _isHovered && kIsWeb) 
+                            IconButton(
+                              icon: const Icon(Icons.more_vert, size: 18),
+                              onPressed: () => _showActions(context),
                             ),
-                            if (widget.message.reactions.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Wrap(
-                                  spacing: 4,
-                                  children: widget.message.reactions.map((r) => Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.05),
-                                      borderRadius: BorderRadius.circular(10),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                if (widget.message.replyToText != null)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 4),
+                                    padding: const EdgeInsets.all(8),
+                                    constraints: BoxConstraints(
+                                      maxWidth: MediaQuery.of(context).size.width * 0.4,
                                     ),
-                                    child: Text(r, style: const TextStyle(fontSize: 12)),
-                                  )).toList(),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border(left: BorderSide(color: widget.accentColor, width: 3)),
+                                    ),
+                                    child: Text(
+                                      widget.message.replyToText!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 10, fontStyle: FontStyle.italic),
+                                    ),
+                                  ),
+                                
+                                // Images stacked vertically
+                                if (widget.message.imagePaths.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Column(
+                                      crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                      children: widget.message.imagePaths.map((path) => Padding(
+                                        padding: const EdgeInsets.only(bottom: 4),
+                                        child: Container(
+                                          constraints: BoxConstraints(
+                                            maxHeight: 200,
+                                            maxWidth: MediaQuery.of(context).size.width * 0.6,
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: kIsWeb 
+                                              ? Image.network(path, fit: BoxFit.cover)
+                                              : Image.file(
+                                                  File(path),
+                                                  fit: BoxFit.cover,
+                                                ),
+                                          ),
+                                        ),
+                                      )).toList(),
+                                    ),
+                                  ),
+
+                                GestureDetector(
+                                  onLongPress: () => _showActions(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                    constraints: BoxConstraints(
+                                      maxWidth: MediaQuery.of(context).size.width * 0.7,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isUser ? widget.accentColor : Theme.of(context).cardColor,
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: const Radius.circular(16),
+                                        topRight: const Radius.circular(16),
+                                        bottomLeft: Radius.circular(isUser ? 16 : 0),
+                                        bottomRight: Radius.circular(isUser ? 0 : 16),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 5,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: isUser
+                                        ? Text(
+                                            widget.message.text,
+                                            textAlign: TextAlign.justify,
+                                            style: const TextStyle(color: Colors.white),
+                                          )
+                                        : MarkdownBody(
+                                            data: widget.message.text,
+                                            styleSheet: MarkdownStyleSheet(
+                                              p: TextStyle(
+                                                color: Theme.of(context).textTheme.bodyMedium?.color,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
-                        if (!isUser && _isHovered && kIsWeb) ...[
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.more_vert, size: 18),
-                            onPressed: () => _showActions(context),
+                                if (widget.message.reactions.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Wrap(
+                                      spacing: 4,
+                                      children: widget.message.reactions.map((r) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(r, style: const TextStyle(fontSize: 12)),
+                                      )).toList(),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
+                          if (!isUser && _isHovered && kIsWeb) ...[
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.more_vert, size: 18),
+                              onPressed: () => _showActions(context),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                     if (isUser) const SizedBox(width: 8),
                     if (isUser) _buildAvatar(true, userIcon),
@@ -281,7 +295,10 @@ class _ChatBubbleState extends ConsumerState<ChatBubble> with SingleTickerProvid
                       if (!isUser) ...[
                         const SizedBox(width: 4),
                         GestureDetector(
-                          onTap: () => ref.read(voiceServiceProvider).speak(widget.message.text),
+                          onTap: () => ref.read(voiceServiceProvider).speak(
+                            widget.message.text, 
+                            language: currentLanguage
+                          ),
                           child: Icon(Icons.volume_up, size: 14, color: Colors.grey[500]),
                         ),
                       ],

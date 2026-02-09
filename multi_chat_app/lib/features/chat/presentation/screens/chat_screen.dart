@@ -24,12 +24,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   
   bool _isListening = false;
   bool _isTtsEnabled = false;
+  bool _showScrollToBottom = false;
+  bool _showEmojiPicker = false;
+
+  final List<String> _emojis = [
+    '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋',
+    '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖',
+    '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔',
+    '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴',
+    '🤢', '🤮', '🤧', '🥵', '🥶', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '👻', '💀', '☠️', '👽', '👾',
+    '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊', '💋', '💌', '💘', '💝', '💖', '💗',
+    '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦',
+    '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘',
+    '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️',
+    '💅', '🤳', '💪', '🦾', '🦵', '🦿', '🦶', '👣', '👂', '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scrollListener);
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_scrollListener);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.hasClients) {
+      final isAtBottom = _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200;
+      if (isAtBottom && _showScrollToBottom) {
+        setState(() => _showScrollToBottom = false);
+      } else if (!isAtBottom && !_showScrollToBottom) {
+        setState(() => _showScrollToBottom = true);
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -56,6 +89,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final List<XFile> images = await _picker.pickMultiImage();
     if (images.isNotEmpty) {
       setState(() => _selectedImages.addAll(images));
+    }
+  }
+
+  void _sendCurrentMessage(ChatNotifier notifier) {
+    if (_controller.text.trim().isNotEmpty || _selectedImages.isNotEmpty) {
+      notifier.sendMessage(
+        _controller.text.trim(),
+        images: _selectedImages,
+      );
+      _controller.clear();
+      setState(() {
+        _selectedImages = [];
+        _showEmojiPicker = false;
+      });
     }
   }
 
@@ -126,27 +173,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           appBar: _buildAppBar(context, chatState, notifier),
           drawer: const PersonaDrawer(),
           body: Container(
-            color: chatState.activePersona.themeColor.withOpacity(0.05),
-            child: Column(
+            color: chatState.activePersona.themeColor.withValues(alpha: 0.05),
+            child: Stack(
               children: [
-                Expanded(
-                  child: chatState.messages.isEmpty 
-                    ? _buildEmptyState(chatAsync.value!)
-                    : ListView.builder(
-                        controller: _scrollController,
-                        itemCount: chatState.messages.length,
-                        itemBuilder: (context, index) {
-                          return ChatBubble(
-                            message: chatState.messages[index],
-                            accentColor: chatState.activePersona.themeColor,
-                            personaIconAsset: chatState.activePersona.iconAsset,
-                          );
-                        },
-                      ),
+                Column(
+                  children: [
+                    Expanded(
+                      child: chatState.messages.isEmpty 
+                        ? _buildEmptyState(chatAsync.value!)
+                        : ListView.builder(
+                            controller: _scrollController,
+                            itemCount: chatState.messages.length,
+                            itemBuilder: (context, index) {
+                              return ChatBubble(
+                                message: chatState.messages[index],
+                                accentColor: chatState.activePersona.themeColor,
+                                personaIconAsset: chatState.activePersona.iconAsset,
+                              );
+                            },
+                          ),
+                    ),
+                    _buildInputArea(context, chatState, notifier, chatState.activePersona.themeColor),
+                    if (_showEmojiPicker) _buildEmojiPicker(chatState.activePersona.themeColor),
+                  ],
                 ),
-                if (chatState.isLoading)
-                  const LinearProgressIndicator(),
-                _buildInputArea(context, chatState, notifier, chatState.activePersona.themeColor),
+                if (_showScrollToBottom)
+                  Positioned(
+                    bottom: 110,
+                    right: 16,
+                    child: FloatingActionButton.small(
+                      onPressed: _scrollToBottom,
+                      backgroundColor: chatState.activePersona.themeColor,
+                      child: const Icon(Icons.arrow_downward, color: Colors.white),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -171,13 +231,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              "Say something to start a conversation with ${state.activePersona.name}...",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 16,
-                fontStyle: FontStyle.italic,
+            SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: Text(
+                "Say something to start a conversation with ${state.activePersona.name}...",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
+                  fontSize: 16,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
           ],
@@ -262,6 +325,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Widget _buildEmojiPicker(Color accentColor) {
+    return Container(
+      height: 250,
+      color: Theme.of(context).cardColor,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 8,
+        ),
+        itemCount: _emojis.length,
+        itemBuilder: (context, index) {
+          return IconButton(
+            onPressed: () {
+              final text = _controller.text;
+              final selection = _controller.selection;
+              final newText = text.replaceRange(selection.start, selection.end, _emojis[index]);
+              _controller.value = TextEditingValue(
+                text: newText,
+                selection: TextSelection.collapsed(offset: selection.start + _emojis[index].length),
+              );
+            },
+            icon: Text(_emojis[index], style: const TextStyle(fontSize: 24)),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildInputArea(BuildContext context, ChatState state, ChatNotifier notifier, Color accentColor) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -273,7 +364,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -2),
               blurRadius: 5,
             ),
@@ -287,7 +378,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               margin: const EdgeInsets.only(bottom: 8, left: 12, right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border(left: BorderSide(color: accentColor, width: 4)),
               ),
@@ -359,6 +450,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Row(
             children: [
               IconButton(
+                icon: Icon(_showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions, color: accentColor),
+                onPressed: () {
+                  setState(() => _showEmojiPicker = !_showEmojiPicker);
+                  if (_showEmojiPicker) {
+                    FocusScope.of(context).unfocus();
+                  } else {
+                    FocusScope.of(context).requestFocus();
+                  }
+                },
+              ),
+              IconButton(
                 icon: Icon(Icons.image, color: accentColor),
                 onPressed: _pickImages,
               ),
@@ -369,6 +471,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Expanded(
                 child: TextField(
                   controller: _controller,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendCurrentMessage(notifier),
+                  onTap: () {
+                    if (_showEmojiPicker) {
+                      setState(() => _showEmojiPicker = false);
+                    }
+                  },
                   style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                   decoration: InputDecoration(
                     hintText: _isListening ? 'Listening...' : 'Ask anything...',
@@ -381,21 +490,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     fillColor: isDark ? Colors.grey[850] : Colors.grey[200],
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   ),
-                  maxLines: null,
+                  maxLines: 5,
+                  minLines: 1,
                 ),
               ),
               const SizedBox(width: 8),
               FloatingActionButton.small(
-                onPressed: () {
-                  if (_controller.text.isNotEmpty || _selectedImages.isNotEmpty) {
-                    notifier.sendMessage(
-                      _controller.text,
-                      images: _selectedImages,
-                    );
-                    _controller.clear();
-                    setState(() => _selectedImages = []);
-                  }
-                },
+                onPressed: () => _sendCurrentMessage(notifier),
                 backgroundColor: accentColor,
                 elevation: 0,
                 child: const Icon(Icons.send, color: Colors.white),

@@ -29,6 +29,27 @@ class PersonaDrawer extends ConsumerWidget {
     ].contains(id);
   }
 
+  Widget _buildAnimatedItem({required int index, required Widget child}) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 80)),
+      curve: Curves.easeOutQuint,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 40 * (1 - value)),
+            child: Transform.scale(
+              scale: 0.9 + (0.1 * value),
+              child: child!,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatStateAsync = ref.watch(chatNotifierProvider);
@@ -39,44 +60,52 @@ class PersonaDrawer extends ConsumerWidget {
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (state) {
           final notifier = ref.read(chatNotifierProvider.notifier);
+          final personas = state.availablePersonas;
 
           return Column(
             children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: state.activePersona.themeColor,
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white,
-                        backgroundImage: _getIconProvider(state.activePersona.iconAsset),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        state.activePersona.name,
-                        style: const TextStyle(
-                          color: Colors.white, 
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+              _buildAnimatedItem(
+                index: 0,
+                child: DrawerHeader(
+                  margin: EdgeInsets.zero,
+                  decoration: BoxDecoration(
+                    color: state.activePersona.themeColor,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.white,
+                          backgroundImage: _getIconProvider(state.activePersona.iconAsset),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        Text(
+                          state.activePersona.name,
+                          style: const TextStyle(
+                            color: Colors.white, 
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               Expanded(
-                child: ListView(
+                child: ListView.builder(
                   padding: EdgeInsets.zero,
-                  children: [
-                    ...state.availablePersonas.map((persona) {
-                      final isSelected = state.activePersona.id == persona.id;
-                      final isDefault = _isDefaultPersona(persona.id);
-                      
-                      return ListTile(
+                  itemCount: personas.length,
+                  itemBuilder: (context, index) {
+                    final persona = personas[index];
+                    final isSelected = state.activePersona.id == persona.id;
+                    final isDefault = _isDefaultPersona(persona.id);
+                    
+                    return _buildAnimatedItem(
+                      index: index + 1,
+                      child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: persona.themeColor,
                           backgroundImage: _getIconProvider(persona.iconAsset),
@@ -115,33 +144,39 @@ class PersonaDrawer extends ConsumerWidget {
                           notifier.switchPersona(persona);
                           Navigator.pop(context);
                         },
-                      );
-                    }).toList(),
-                  ],
+                      ),
+                    );
+                  },
                 ),
               ),
               const Divider(),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text("Create Custom Persona"),
-                onTap: () {
-                  Navigator.pop(context); // Close drawer
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const CreatePersonaScreen()),
-                  );
-                },
+              _buildAnimatedItem(
+                index: personas.length + 1,
+                child: ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text("Create Custom Persona"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CreatePersonaScreen()),
+                    );
+                  },
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text("Settings"),
-                onTap: () {
-                  Navigator.pop(context); // Close drawer
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const UserSettingsScreen()),
-                  );
-                },
+              _buildAnimatedItem(
+                index: personas.length + 2,
+                child: ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text("Settings"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const UserSettingsScreen()),
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 20),
             ],
@@ -175,8 +210,8 @@ class PersonaDrawer extends ConsumerWidget {
                     backgroundColor: Colors.green,
                   ),
                 );
-                navigator.pop(); // Close dialog
-                navigator.pop(); // Close drawer
+                navigator.pop();
+                navigator.pop();
               } catch (e) {
                 messenger.showSnackBar(
                   SnackBar(
@@ -185,7 +220,7 @@ class PersonaDrawer extends ConsumerWidget {
                     backgroundColor: Colors.red,
                   ),
                 );
-                navigator.pop(); // Close dialog
+                navigator.pop();
               }
             },
             child: const Text("Delete", style: TextStyle(color: Colors.red)),

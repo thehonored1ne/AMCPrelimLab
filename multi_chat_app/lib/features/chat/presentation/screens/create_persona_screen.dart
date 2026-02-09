@@ -105,7 +105,7 @@ class _CreatePersonaScreenState extends ConsumerState<CreatePersonaScreen> {
                 controller: _instructionCtrl,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                    labelText: "System Instruction ( The Brain )",
+                    labelText: "System Instruction",
                     hintText: "You are a fitness coach. You yell at the user to do pushups...",
                     border: OutlineInputBorder()
                 ),
